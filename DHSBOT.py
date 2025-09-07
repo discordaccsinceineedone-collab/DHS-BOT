@@ -351,11 +351,12 @@ async def show_appconfig(interaction: discord.Interaction):
 async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
     try:
-        synced = await bot.tree.sync()
-        print(f"🔗 Synced {len(synced)} slash commands")
+        guild = discord.Object(id=GUILD_ID)  # usa seu GUILD_ID definido no início
+        synced = await bot.tree.sync(guild=guild)
+        print(f"🌐 Synced {len(synced)} commands to guild {GUILD_ID}")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
-
 bot.run(TOKEN)
+
 
 
