@@ -347,7 +347,6 @@ async def show_appconfig(interaction: discord.Interaction):
     lines.append(f"• DHS panel channel: {f'<#{panels.get('dhs')}>' if panels.get('dhs') else '*not set*'}")
     lines.append(f"• Divisions panel channel: {f'<#{panels.get('divisions')}>' if panels.get('divisions') else '*not set*'}")
     await interaction.response.send_message("\n".join(lines), ephemeral=True)
-on_ready
 @bot.event
 async def on_ready():
     print(f"✅ Logged in as {bot.user} (ID: {bot.user.id})")
@@ -358,4 +357,5 @@ async def on_ready():
         print(f"❌ Failed to sync commands: {e}")
 
 bot.run(TOKEN)
+
 
