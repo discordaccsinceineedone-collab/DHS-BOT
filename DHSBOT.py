@@ -7,6 +7,7 @@ import os
 import asyncio
 import datetime
 from dotenv import load_dotenv
+from typing import Dict, Any
 
 # Load .env
 load_dotenv()
@@ -347,4 +348,5 @@ async def show_appconfig(interaction: discord.Interaction):
     lines.append(f"• Divisions panel channel: {f'<#{panels.get('divisions')}>' if panels.get('divisions') else '*not set*'}")
     await interaction.response.send_message("\n".join(lines), ephemeral=True)
 on_ready
+
 bot.run(TOKEN)
