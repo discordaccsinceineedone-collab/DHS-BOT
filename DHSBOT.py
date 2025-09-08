@@ -356,7 +356,28 @@ async def on_ready():
         print(f"🌐 Synced {len(synced)} commands to guild {GUILD_ID}")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
+
+from flask import Flask
+import threading
+import os
+
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run():
+    port = int(os.environ.get("PORT", 8080))  # Render provides the port
+    app.run(host="0.0.0.0", port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run)
+    t.start()
+
+keep_alive()
 bot.run(TOKEN)
+
 
 
 
