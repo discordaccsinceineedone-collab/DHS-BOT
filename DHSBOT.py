@@ -195,7 +195,7 @@ async def ticket(ctx, *, reason: str = "No reason provided"):
 # MODERATION: WARNINGS
 # ---------------------------
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
+@commands.has_permissions(manage_messages=True, administrator=True)
 async def warn(ctx, member: discord.Member, *, reason: str = "No reason provided"):
     data = load_warnings()
     entry = {"by": ctx.author.id, "reason": reason, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
@@ -204,7 +204,7 @@ async def warn(ctx, member: discord.Member, *, reason: str = "No reason provided
     await ctx.send(f"⚠️ {member.mention} has been warned. Reason: {reason}")
 
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
+@commands.has_permissions(manage_messages=True, administrator=True)
 async def warningslist(ctx, member: discord.Member):
     data = load_warnings()
     arr = data.get(str(member.id), [])
@@ -225,7 +225,7 @@ async def warningslist(ctx, member: discord.Member):
     await ctx.send(embed=embed)
 
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
+@commands.has_permissions(manage_messages=True, administrator=True)
 async def clearwarnings(ctx, member: discord.Member):
     data = load_warnings()
     if str(member.id) in data:
