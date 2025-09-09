@@ -53,116 +53,6 @@ IA_ROLE_ID      = 1414785933277921421
 SHR_ROLE_ID     = 1414786150270242928
 
 # ---------------------------
-# DIVISIONS configuration
-# ---------------------------
-DIVISIONS = {
-    "entry": {
-        "name": "DHS Entry Application",
-        "log_channel": 1409261979394244804,
-        "required_roles": [],
-        "ping_roles": [1414709361103736915],
-        "accepted_roles": [
-            1409261978060324936, 1409261978060324942,
-            1409261978060324939, 1409261978060324944
-        ],
-        "questions": [
-            "What is your Roblox username?",
-            "How old are you?",
-            "Why do you want to join DHS?",
-            "Do you have any past experience in law enforcement groups?",
-            "Do you agree to follow all DHS rules and regulations?",
-            "You get to a scene where three active shooters are killing people and when they spot you, your car is hit by a barrage of gunfire. Explain in 2 sentences how you proceed.",
-            "Do you understand that if you ask someone to read your application it will make you instantly disqualified?",
-            "Do you have any suggestions for the application? If no just say 'no'."
-        ]
-    },
-    "rig": {
-        "name": "Rapid Intervention Group",
-        "log_channel": 1411776666887262328,
-        "required_roles": [1409261978060324939],
-        "ping_roles": [1409261978052071594],
-        "accepted_roles": [1409261978052071592],
-        "questions": [
-            "Why do you want to join RIG?",
-            "Do you have tactical experience?",
-            "Have you ever been in a special response unit?",
-            "Imagine you are the first unit to arrive on a hostage scene and you are the only tactical agent. With 3 sentences, explain how you would proceed."
-        ]
-    },
-    "aris": {
-        "name": "Authorized Rapid Intervention Specialist (ARIS)",
-        "log_channel": 1411776839520620714,
-        "required_roles": [1409261978052071592],
-        "ping_roles": [1409261978052071594],
-        "accepted_roles": [1414711149626392637],
-        "questions": [
-            "Why do you want to join ARIS?",
-            "Have you completed all RIG requirements?",
-            "What makes you a good candidate for ARIS?",
-            "If accepted, you will act like a full squad but alone. Do you accept?",
-            "Imagine LAPD requests tactical backup and there's a barricaded suspect. Explain in 3 sentences how you proceed."
-        ]
-    },
-    "hsi": {
-        "name": "Homeland Security Investigation",
-        "log_channel": 1411777003870359573,
-        "required_roles": [1409261978060324939],
-        "ping_roles": [1409261978052071593],
-        "accepted_roles": [1409261978052071591],
-        "questions": [
-            "Why do you want to join HSI?",
-            "Do you have investigative experience?",
-            "How would you handle a case involving organized crime?",
-            "Imagine a DA prosecutor was killed. Explain in 3 sentences how you would continue the investigation and identify the killer."
-        ]
-    },
-    "hsi_srt": {
-        "name": "HSI Special Response Team (SRT)",
-        "log_channel": 1414714279482888202,
-        "required_roles": [1409261978052071591],
-        "ping_roles": [1409261978052071593],
-        "accepted_roles": [1414713294186614804],
-        "questions": [
-            "Why do you want to join HSI SRT?",
-            "Do you have prior tactical response training?",
-            "How do you operate under high-stress situations?",
-            "From the HSI application: imagine the suspect resists and kills agents. How do you proceed as SRT?"
-        ]
-    },
-    "uscbp": {
-        "name": "U.S Customs and Border Protection",
-        "log_channel": 1411781003445534730,
-        "required_roles": [1409261978060324939],
-        "ping_roles": [1414058850721730661],
-        "accepted_roles": [1409261978052071590],
-        "questions": [
-            "Why do you want to join USCBP?",
-            "What is the most important duty of a border agent?",
-            "How would you handle illegal entry situations?",
-            "You encounter someone attempting to cross without documents. What do you do?"
-        ]
-    },
-    "usss": {
-        "name": "U.S Secret Service",
-        "log_channel": 1414060519781957723,
-        "required_roles": [1409261978060324939],
-        "ping_roles": [1414058961149362196],
-        "accepted_roles": [1414055227061178511],
-        "questions": [
-            "Roblox user?",
-            "Discord user?",
-            "Why do you want to join USSS?",
-            "What will your duties be in roleplay?",
-            "What is the purpose of USSS?",
-            "If guarding an official and ambushed, what do you do?",
-            "A civilian breaks into an ATM. How do you handle it? What charges may apply?",
-            "How would you surveil and collect evidence for a warrant?",
-            "List all your experience."
-        ]
-    }
-}
-
-# ---------------------------
 # Persistent warnings store
 # ---------------------------
 WARNINGS_FILE = "warnings.json"
@@ -179,166 +69,139 @@ def save_warnings(data):
         json.dump(data, f, indent=2)
 
 # ---------------------------
-# SHIFT SYSTEM
+# Logging helper
 # ---------------------------
-shift_data = {}
-
-class ShiftView(View):
-    def __init__(self, owner_id: int):
-        super().__init__(timeout=None)
-        self.owner_id = owner_id
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message("❌ Only the officer who created this panel can use these buttons.", ephemeral=True)
-            return False
-        return True
-
-    @discord.ui.button(label="Start Shift", style=discord.ButtonStyle.success, custom_id="shift_start")
-    async def start_shift(self, interaction: discord.Interaction, button: Button):
-        uid = interaction.user.id
-        if uid in shift_data:
-            await interaction.response.send_message("⚠️ You already have an active shift.", ephemeral=True)
-            return
-        shift_data[uid] = {"start": datetime.now(timezone.utc), "breaks": [], "on_break": False}
-        await interaction.response.send_message("🟢 Shift started.", ephemeral=False)
-        ch = bot.get_channel(SHIFT_CHANNEL_ID)
-        if ch:
-            await ch.send(f"🟢 {interaction.user.mention} started a shift. <t:{int(datetime.now(timezone.utc).timestamp())}:F>")
-
-    @discord.ui.button(label="Break", style=discord.ButtonStyle.secondary, custom_id="shift_break")
-    async def start_break(self, interaction: discord.Interaction, button: Button):
-        uid = interaction.user.id
-        data = shift_data.get(uid)
-        if not data:
-            await interaction.response.send_message("⚠️ You don't have an active shift.", ephemeral=True)
-            return
-        if data["on_break"]:
-            await interaction.response.send_message("⚠️ You are already on break.", ephemeral=True)
-            return
-        data["on_break"] = True
-        data["breaks"].append({"start": datetime.now(timezone.utc), "end": None})
-        await interaction.response.send_message("⏸ Break started.", ephemeral=False)
-
-    @discord.ui.button(label="End Break", style=discord.ButtonStyle.primary, custom_id="shift_endbreak")
-    async def end_break(self, interaction: discord.Interaction, button: Button):
-        uid = interaction.user.id
-        data = shift_data.get(uid)
-        if not data or not data["on_break"]:
-            await interaction.response.send_message("⚠️ You are not on a break.", ephemeral=True)
-            return
-        data["on_break"] = False
-        data["breaks"][-1]["end"] = datetime.now(timezone.utc)
-        await interaction.response.send_message("▶️ Break ended.", ephemeral=False)
-
-    @discord.ui.button(label="End Shift", style=discord.ButtonStyle.danger, custom_id="shift_end")
-    async def end_shift(self, interaction: discord.Interaction, button: Button):
-        uid = interaction.user.id
-        data = shift_data.pop(uid, None)
-        if not data:
-            await interaction.response.send_message("⚠️ You don't have an active shift.", ephemeral=True)
-            return
-        start = data["start"]
-        end = datetime.now(timezone.utc)
-        total = (end - start).total_seconds()
-        total_break_seconds = 0
-        for b in data["breaks"]:
-            bstart = b["start"]
-            bend = b["end"] or end
-            total_break_seconds += (bend - bstart).total_seconds()
-        worked_seconds = max(0, int(total - total_break_seconds))
-        hours, rem = divmod(worked_seconds, 3600)
-        minutes, seconds = divmod(rem, 60)
-        ch = bot.get_channel(SHIFT_CHANNEL_ID)
-        if ch:
-            await ch.send(
-                f"🔴 {interaction.user.mention} ended shift.\n"
-                f"⏱ Worked: **{hours}h {minutes}m {seconds}s** (breaks excluded)."
-            )
-        await interaction.response.send_message(f"🔚 Shift ended. Worked **{hours}h {minutes}m {seconds}s**", ephemeral=True)
-
-@bot.command()
-async def shiftpanel(ctx):
-    view = ShiftView(ctx.author.id)
-    embed = discord.Embed(title="🕒 Shift Controls", description="Only the officer who created this panel can use these buttons.", color=discord.Color.gold())
-    await ctx.send(embed=embed, view=view)
-
-# ---------------------------
-# APPLICATIONS
-# ---------------------------
-# ... (unchanged application system)
-
-# ---------------------------
-# Moderation & Logging commands
-# ---------------------------
-
 async def safe_send_log(channel_id: int, embed: discord.Embed, content: str = None):
     ch = bot.get_channel(channel_id)
     if ch:
         await ch.send(content or "", embed=embed)
 
-# Arrest - no special perms now
+# ---------------------------
+# SHIFT LOGGING
+# ---------------------------
 @bot.command()
-async def arrest(ctx, suspect: str, *, reason: str):
-    embed = discord.Embed(title="🚔 Arrest Log", color=discord.Color.red(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Suspect", value=suspect, inline=True)
+async def shift(ctx, *, text: str):
+    embed = discord.Embed(title="📋 Shift Log", color=discord.Color.green())
     embed.add_field(name="Officer", value=ctx.author.mention, inline=True)
-    embed.add_field(name="Reason", value=reason, inline=False)
-    await safe_send_log(ARREST_CHANNEL_ID, embed)
-    await ctx.send("✅ Arrest logged.")
+    embed.add_field(name="Details", value=text, inline=False)
+    await safe_send_log(SHIFT_CHANNEL_ID, embed)
+    await ctx.send("✅ Shift log submitted.")
 
-# Warrant - no special perms now
+# ---------------------------
+# ARREST LOGGING
+# ---------------------------
 @bot.command()
-async def warrant(ctx, suspect: str, warrant_type: str, *, reason: str):
-    embed = discord.Embed(title=f"📜 {warrant_type.title()} Warrant", color=discord.Color.orange(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Suspect", value=suspect, inline=True)
+async def arrest(ctx, *, text: str):
+    embed = discord.Embed(title="🚔 Arrest Log", color=discord.Color.red())
     embed.add_field(name="Officer", value=ctx.author.mention, inline=True)
+    embed.add_field(name="Details", value=text, inline=False)
+    await safe_send_log(ARREST_CHANNEL_ID, embed)
+    await ctx.send("✅ Arrest log submitted.")
+
+# ---------------------------
+# PROMOTION LOGGING
+# ---------------------------
+@bot.command()
+async def promote(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    embed = discord.Embed(title="📈 Promotion Log", color=discord.Color.blue())
+    embed.add_field(name="Promoted", value=member.mention, inline=True)
+    embed.add_field(name="By", value=ctx.author.mention, inline=True)
     embed.add_field(name="Reason", value=reason, inline=False)
+    await safe_send_log(PROMOTION_CHANNEL_ID, embed)
+    await ctx.send(f"✅ Promotion logged for {member.mention}.")
+
+# ---------------------------
+# DISCIPLINE LOGGING
+# ---------------------------
+@bot.command()
+async def discipline(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    embed = discord.Embed(title="⚠️ Discipline Log", color=discord.Color.orange())
+    embed.add_field(name="Disciplined", value=member.mention, inline=True)
+    embed.add_field(name="By", value=ctx.author.mention, inline=True)
+    embed.add_field(name="Reason", value=reason, inline=False)
+    await safe_send_log(DISCIPLINE_CHANNEL_ID, embed)
+    await ctx.send(f"✅ Discipline logged for {member.mention}.")
+
+# ---------------------------
+# WARRANTS
+# ---------------------------
+@bot.command()
+async def warrant(ctx, *, details: str):
+    embed = discord.Embed(title="📜 Warrant Issued", color=discord.Color.purple())
+    embed.add_field(name="Issued By", value=ctx.author.mention, inline=True)
+    embed.add_field(name="Details", value=details, inline=False)
     await safe_send_log(WARRANT_CHANNEL_ID, embed)
     await ctx.send("✅ Warrant logged.")
 
-# Promotion - manage_members or admin
+# ---------------------------
+# TRAINING LOGS
+# ---------------------------
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
-async def promotion(ctx, member: discord.Member, *, new_rank: str):
-    embed = discord.Embed(title="⬆️ Promotion", color=discord.Color.green(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Officer", value=str(member), inline=True)
-    embed.add_field(name="New Rank", value=new_rank, inline=True)
-    embed.add_field(name="Promoted by", value=ctx.author.mention, inline=False)
-    await safe_send_log(PROMOTION_CHANNEL_ID, embed)
-    await ctx.send("✅ Promotion logged.")
+async def training(ctx, *, details: str):
+    embed = discord.Embed(title="🎓 Training Log", color=discord.Color.teal())
+    embed.add_field(name="Trainer", value=ctx.author.mention, inline=True)
+    embed.add_field(name="Details", value=details, inline=False)
+    await safe_send_log(TRAINING_CHANNEL_ID, embed)
+    await ctx.send("✅ Training log submitted.")
 
-# Demotion - manage_members or admin
+# ---------------------------
+# BLACKLIST
+# ---------------------------
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
-async def demotion(ctx, member: discord.Member, from_rank: str, to_rank: str, *, reason: str):
-    embed = discord.Embed(title="⬇️ Demotion", color=discord.Color.dark_gold(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="Officer", value=str(member), inline=True)
-    embed.add_field(name="From → To", value=f"{from_rank} → {to_rank}", inline=True)
+async def blacklist(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    embed = discord.Embed(title="⛔ Blacklist Log", color=discord.Color.dark_red())
+    embed.add_field(name="User", value=member.mention, inline=True)
+    embed.add_field(name="By", value=ctx.author.mention, inline=True)
     embed.add_field(name="Reason", value=reason, inline=False)
-    embed.add_field(name="Logged by", value=ctx.author.mention, inline=False)
-    await safe_send_log(DISCIPLINE_CHANNEL_ID, embed)
-    await ctx.send("✅ Demotion logged.")
+    await safe_send_log(BLACKLIST_CHANNEL_ID, embed)
+    await ctx.send(f"✅ {member.mention} has been blacklisted.")
 
-# Warning - manage_members or admin
+# ---------------------------
+# APPLICATION PANEL
+# ---------------------------
 @bot.command()
-@commands.has_permissions(manage_members=True, administrator=True)
-async def warning(ctx, member: discord.Member, *, reason: str):
-    data = load_warnings()
-    arr = data.get(str(member.id), [])
-    arr.append({"by": ctx.author.id, "reason": reason, "time": datetime.now(timezone.utc).isoformat()})
-    data[str(member.id)] = arr
-    save_warnings(data)
-    embed = discord.Embed(title="⚠️ Warning", color=discord.Color.orange(), timestamp=datetime.now(timezone.utc))
-    embed.add_field(name="User", value=str(member), inline=True)
-    embed.add_field(name="Reason", value=reason, inline=False)
-    embed.add_field(name="Issued by", value=ctx.author.mention, inline=False)
-    await safe_send_log(DISCIPLINE_CHANNEL_ID, embed)
+async def application(ctx, division: str):
+    embed = discord.Embed(title=f"📋 Application started for {division}", color=discord.Color.blue())
+    embed.add_field(name="Applicant", value=ctx.author.mention, inline=False)
+    embed.add_field(name="Division", value=division, inline=False)
+    embed.set_footer(text="Answer the questions sent via DM.")
+    await ctx.send(embed=embed)
     try:
-        await member.send(f"You have received a warning in {ctx.guild.name}: {reason}")
+        await ctx.author.send(f"Welcome to the {division} application! Please answer the questions one by one.")
     except:
-        pass
-    await ctx.send("✅ Warning issued and logged.")
+        await ctx.send("⚠️ Could not DM you. Enable DMs and try again.")
+
+# ---------------------------
+# TICKETS SYSTEM
+# ---------------------------
+@bot.command()
+async def ticket(ctx, *, reason: str = "No reason provided"):
+    category = ctx.guild.get_channel(TICKET_CATEGORY_ID)
+    if not category:
+        await ctx.send("⚠️ Ticket category not found!")
+        return
+    overwrites = {
+        ctx.guild.default_role: discord.PermissionOverwrite(view_channel=False),
+        ctx.author: discord.PermissionOverwrite(view_channel=True, send_messages=True),
+        ctx.guild.me: discord.PermissionOverwrite(view_channel=True, send_messages=True)
+    }
+    channel = await category.create_text_channel(name=f"ticket-{ctx.author.name}", overwrites=overwrites)
+    embed = discord.Embed(title="🎫 New Ticket", description=reason, color=discord.Color.green())
+    embed.add_field(name="Opened By", value=ctx.author.mention, inline=False)
+    await channel.send(embed=embed)
+    await ctx.send(f"✅ Ticket created: {channel.mention}")
+
+# ---------------------------
+# MODERATION: WARNINGS
+# ---------------------------
+@bot.command()
+@commands.has_permissions(manage_members=True, administrator=True)
+async def warn(ctx, member: discord.Member, *, reason: str = "No reason provided"):
+    data = load_warnings()
+    entry = {"by": ctx.author.id, "reason": reason, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+    data.setdefault(str(member.id), []).append(entry)
+    save_warnings(data)
+    await ctx.send(f"⚠️ {member.mention} has been warned. Reason: {reason}")
 
 @bot.command()
 @commands.has_permissions(manage_members=True, administrator=True)
@@ -351,4 +214,30 @@ async def warningslist(ctx, member: discord.Member):
     embed = discord.Embed(title=f"Warnings for {member}", color=discord.Color.orange())
     for i, w in enumerate(arr, 1):
         by = ctx.guild.get_member(w["by"])
-        embed.add_field(name=f
+        by_name = by.mention if by else "Unknown"
+        reason = w.get("reason", "No reason provided")
+        time = w.get("time", "Unknown time")
+        embed.add_field(
+            name=f"Warning #{i}",
+            value=f"**By:** {by_name}\n**Reason:** {reason}\n**Time:** {time}",
+            inline=False
+        )
+    await ctx.send(embed=embed)
+
+@bot.command()
+@commands.has_permissions(manage_members=True, administrator=True)
+async def clearwarnings(ctx, member: discord.Member):
+    data = load_warnings()
+    if str(member.id) in data:
+        data[str(member.id)] = []
+        save_warnings(data)
+    await ctx.send(f"✅ Cleared all warnings for {member.mention}.")
+
+# ---------------------------
+# Run bot
+# ---------------------------
+TOKEN = os.getenv("DISCORD_TOKEN")
+if not TOKEN:
+    print("❌ No DISCORD_TOKEN found in environment variables!")
+else:
+    bot.run(TOKEN)
