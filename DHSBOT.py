@@ -1,43 +1,53 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 from discord.ui import View, Button, Select
+import asyncio
+from flask import Flask
+import threading
 
+# =======================
+# Flask keep-alive server
+# =======================
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "✅ DHS Bot is running!"
+
+def run():
+    app.run(host='0.0.0.0', port=8080)
+
+threading.Thread(target=run).start()
+
+# =======================
+# Discord Bot Setup
+# =======================
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# ==============================
-# CONFIG
-# ==============================
-APPLICATION_PANEL_CHANNEL_ID = 1409261979394244802
+# =======================
+# Channel IDs
+# =======================
+APPLICATION_CHANNEL_ID = 1409261979394244802
+TICKET_CATEGORY_ID = 1414786534401642586
 TICKET_PANEL_CHANNEL_ID = 1414786776551260281
-TICKET_CATEGORY_ID = 1414786534401642586  
 
-# Ticket support roles
+# Example role IDs (replace with your own)
 GENERAL_ROLE_ID = 1414786147044818944
 IA_ROLE_ID = 1414785933277921421
 SHR_ROLE_ID = 1414786150270242928
 
-# Logging channels (replace with your IDs)
-LOG_CHANNELS = {
-    "shift": 1415000000000000001,
-    "promotion": 1415000000000000002,
-    "warning": 1415000000000000003,
-    "disciplinary": 1415000000000000004,
-    "warrant": 1415000000000000005,
-    "arrest": 1415000000000000006,
-    "blacklist": 1415000000000000007,
-    "training": 1415000000000000008,
-}
-
-# ==============================
-# APPLICATION SYSTEM
-# ==============================
+# =======================
+# Applications System
+# =======================
 DIVISIONS = {
     "entry": {
         "name": "DHS Entry Application",
-        "log_channel": 1409261978060324939,  # replace with actual log channel
+        "log_channel": 1409261979394244804,
         "required_roles": [],
         "ping_roles": [1414709361103736915],
         "accepted_roles": [
@@ -50,84 +60,108 @@ DIVISIONS = {
             "Why do you want to join DHS?",
             "Do you have any past experience in law enforcement groups?",
             "Do you agree to follow all DHS rules and regulations?",
-            "You get to a scene where three active shooters are killing people and when they spot you, your car is hit by a barrage of gunfire. Explain in 2 sentences how you would proceed.",
-            "Do you understand that if you ask someone to read your application you will be instantly disqualified?",
+            "You get to a scene where three active shooters are killing people and when they spot you, your car is hit by a barrage of gunfire. Explain in 2 sentences how you are going to proceed on that call.",
+            "Do you understand that if you ask someone to read your application it will make you instantly disqualified?",
             "Do you have any suggestions for the application? If no just say **no**."
         ]
     }
+    # Add your other divisions here (RIG, ARIS, HSI, etc.)...
 }
 
 class ApplicationView(View):
-    def __init__(self, division_key, applicant, answers):
+    def __init__(self, division_key):
         super().__init__(timeout=None)
         self.division_key = division_key
+        self.add_item(Button(label="📋 Apply Now", style=discord.ButtonStyle.primary, custom_id=f"apply_{division_key}"))
+
+@bot.tree.command(name="send_app_panel", description="Send an application panel for a division.")
+@app_commands.checks.has_permissions(administrator=True)
+async def send_app_panel(interaction: discord.Interaction, division: str):
+    if division not in DIVISIONS:
+        await interaction.response.send_message("❌ Invalid division key.", ephemeral=True)
+        return
+    channel = bot.get_channel(APPLICATION_CHANNEL_ID)
+    view = ApplicationView(division)
+    embed = discord.Embed(
+        title=f"📋 {DIVISIONS[division]['name']} Application",
+        description="Click the button below to start your application.",
+        color=discord.Color.blue()
+    )
+    await channel.send(embed=embed, view=view)
+    await interaction.response.send_message(f"✅ Application panel for **{division}** sent.", ephemeral=True)
+
+@bot.event
+async def on_interaction(interaction: discord.Interaction):
+    if interaction.type == discord.InteractionType.component:
+        custom_id = interaction.data.get("custom_id")
+        if custom_id and custom_id.startswith("apply_"):
+            division_key = custom_id.split("_")[1]
+            await start_application(interaction, division_key)
+
+async def start_application(interaction, division_key):
+    division = DIVISIONS[division_key]
+    answers = []
+    for question in division["questions"]:
+        await interaction.response.send_message(f"**{question}**", ephemeral=True)
+        try:
+            msg = await bot.wait_for(
+                "message",
+                timeout=120,
+                check=lambda m: m.author == interaction.user and m.channel == interaction.channel
+            )
+            answers.append(msg.content)
+        except asyncio.TimeoutError:
+            await interaction.followup.send("❌ Application timed out.", ephemeral=True)
+            return
+
+    embed = discord.Embed(
+        title=f"{division['name']} Application",
+        description=f"📋 Application from {interaction.user.mention}",
+        color=discord.Color.green()
+    )
+    for q, a in zip(division["questions"], answers):
+        embed.add_field(name=q, value=a, inline=False)
+
+    log_channel = bot.get_channel(division["log_channel"])
+    view = RecruiterView(interaction.user, division)
+    await log_channel.send(content="📥 New Application Received!", embed=embed, view=view)
+    await interaction.followup.send("✅ Application submitted successfully!", ephemeral=True)
+
+class RecruiterView(View):
+    def __init__(self, applicant, division):
+        super().__init__(timeout=None)
         self.applicant = applicant
-        self.answers = answers
+        self.division = division
+        self.add_item(Button(label="✅ Accept", style=discord.ButtonStyle.success, custom_id="accept"))
+        self.add_item(Button(label="❌ Deny", style=discord.ButtonStyle.danger, custom_id="deny"))
 
     @discord.ui.button(label="✅ Accept", style=discord.ButtonStyle.success)
     async def accept(self, interaction: discord.Interaction, button: Button):
-        division = DIVISIONS[self.division_key]
-        guild = interaction.guild
-        for role_id in division["accepted_roles"]:
-            role = guild.get_role(role_id)
-            if role:
-                await self.applicant.add_roles(role)
-        await interaction.response.send_message(
-            f"✅ {self.applicant.mention}'s application has been **ACCEPTED**.", ephemeral=False
+        member = interaction.guild.get_member(self.applicant.id)
+        if member:
+            for role_id in self.division["accepted_roles"]:
+                role = interaction.guild.get_role(role_id)
+                if role:
+                    await member.add_roles(role)
+        embed = discord.Embed(
+            title="📢 Application Result",
+            description=f"{self.applicant.mention}'s application for **{self.division['name']}** has been **ACCEPTED** ✅",
+            color=discord.Color.green()
         )
+        await interaction.response.send_message(embed=embed)
 
     @discord.ui.button(label="❌ Deny", style=discord.ButtonStyle.danger)
     async def deny(self, interaction: discord.Interaction, button: Button):
-        await interaction.response.send_message(
-            f"❌ {self.applicant.mention}'s application has been **DENIED**.", ephemeral=False
-        )
-
-async def start_application(interaction: discord.Interaction, division_key: str):
-    division = DIVISIONS[division_key]
-    applicant = interaction.user
-    answers = []
-
-    try:
-        dm = await applicant.create_dm()
-        await dm.send(f"📋 Starting your **{division['name']}** application...")
-
-        for q in division["questions"]:
-            await dm.send(q)
-            msg = await bot.wait_for(
-                "message", check=lambda m: m.author == applicant and m.channel == dm, timeout=300
-            )
-            answers.append(f"**Q:** {q}\n**A:** {msg.content}\n")
-
         embed = discord.Embed(
-            title=f"📋 New {division['name']}",
-            description="\n".join(answers),
-            color=discord.Color.blue()
+            title="📢 Application Result",
+            description=f"{self.applicant.mention}'s application for **{self.division['name']}** has been **DENIED** ❌",
+            color=discord.Color.red()
         )
-        embed.set_footer(text=f"Applicant: {applicant} ({applicant.id})")
+        await interaction.response.send_message(embed=embed)
 
-        log_channel = bot.get_channel(division["log_channel"])
-        await log_channel.send(
-            content=" ".join([f"<@&{r}>" for r in division["ping_roles"]]),
-            embed=embed,
-            view=ApplicationView(division_key, applicant, answers)
-        )
-
-        await dm.send("✅ Your application has been submitted!")
-
-    except Exception as e:
-        await applicant.send(f"❌ Error: {e}")
-
-@bot.tree.command(name="apply", description="Apply for a division (example: entry).")
-async def apply(interaction: discord.Interaction, division: str):
-    if division not in DIVISIONS:
-        await interaction.response.send_message("❌ Invalid division.", ephemeral=True)
-        return
-    await interaction.response.send_message(f"📩 Check your DMs to start your {division} application!", ephemeral=True)
-    await start_application(interaction, division)
-
-# ==============================
-# TICKET SYSTEM
-# ==============================
+# =======================
+# Ticket System
+# =======================
 class TicketDropdown(Select):
     def __init__(self):
         options = [
@@ -135,109 +169,65 @@ class TicketDropdown(Select):
             discord.SelectOption(label="🕵️ IA Support", value="ia"),
             discord.SelectOption(label="🛡️ SHR Support", value="shr"),
         ]
-        super().__init__(placeholder="Select ticket type...", options=options, custom_id="ticket_select")
+        super().__init__(placeholder="Select ticket type...", options=options)
 
     async def callback(self, interaction: discord.Interaction):
         guild = interaction.guild
         category = guild.get_channel(TICKET_CATEGORY_ID)
-
         role_map = {
             "general": guild.get_role(GENERAL_ROLE_ID),
             "ia": guild.get_role(IA_ROLE_ID),
             "shr": guild.get_role(SHR_ROLE_ID),
         }
-
         ticket_type = self.values[0]
         channel_name = f"ticket-{ticket_type}-{interaction.user.name}".lower()
-
         existing = discord.utils.get(guild.text_channels, name=channel_name)
         if existing:
             await interaction.response.send_message(f"⚠️ You already have a ticket: {existing.mention}", ephemeral=True)
             return
-
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
             role_map[ticket_type]: discord.PermissionOverwrite(read_messages=True, send_messages=True),
         }
-
         channel = await guild.create_text_channel(channel_name, category=category, overwrites=overwrites)
-        await interaction.response.send_message(f"✅ Your {ticket_type.upper()} ticket has been created: {channel.mention}", ephemeral=True)
-        await channel.send(f"{role_map[ticket_type].mention} 📩 New {ticket_type.upper()} ticket opened by {interaction.user.mention}")
+        await interaction.response.send_message(f"✅ Ticket created: {channel.mention}", ephemeral=True)
+        embed = discord.Embed(
+            title=f"📩 {ticket_type.upper()} Ticket",
+            description=f"{interaction.user.mention} opened a new ticket.",
+            color=discord.Color.blue()
+        )
+        await channel.send(content=role_map[ticket_type].mention, embed=embed)
 
 class TicketView(View):
     def __init__(self):
         super().__init__(timeout=None)
         self.add_item(TicketDropdown())
 
-@bot.tree.command(name="ticketpanel", description="Send the ticket panel.")
-async def ticketpanel(interaction: discord.Interaction):
-    panel_channel = bot.get_channel(TICKET_PANEL_CHANNEL_ID)
-    view = TicketView()
-    await panel_channel.send("🎟️ **Open a ticket by selecting below:**", view=view)
-    await interaction.response.send_message("✅ Ticket panel sent.", ephemeral=True)
+@bot.tree.command(name="send_ticket_panel", description="Send the ticket panel.")
+@app_commands.checks.has_permissions(administrator=True)
+async def send_ticket_panel(interaction: discord.Interaction):
+    channel = bot.get_channel(TICKET_PANEL_CHANNEL_ID)
+    if channel:
+        view = TicketView()
+        await channel.send("🎟️ **Open a ticket by selecting from the dropdown below:**", view=view)
+        await interaction.response.send_message("✅ Ticket panel sent.", ephemeral=True)
+    else:
+        await interaction.response.send_message("❌ Ticket panel channel not found.", ephemeral=True)
 
-# ==============================
-# LOGGING COMMANDS
-# ==============================
-@bot.tree.command(name="shift", description="Start or end a shift.")
-async def shift(interaction: discord.Interaction, action: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["shift"])
-    await log_channel.send(f"🕒 {interaction.user.mention} has **{action}ed** their shift.")
-    await interaction.response.send_message("✅ Shift logged.", ephemeral=True)
-
-@bot.tree.command(name="warning", description="Log a warning.")
-async def warning(interaction: discord.Interaction, user: discord.User, reason: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["warning"])
-    await log_channel.send(f"⚠️ {user.mention} warned by {interaction.user.mention} for: {reason}")
-    await interaction.response.send_message("✅ Warning logged.", ephemeral=True)
-
-@bot.tree.command(name="promotion", description="Log a promotion.")
-async def promotion(interaction: discord.Interaction, user: discord.User, new_rank: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["promotion"])
-    await log_channel.send(f"📈 {user.mention} was promoted to **{new_rank}** by {interaction.user.mention}")
-    await interaction.response.send_message("✅ Promotion logged.", ephemeral=True)
-
-@bot.tree.command(name="disciplinary", description="Log a disciplinary action.")
-async def disciplinary(interaction: discord.Interaction, user: discord.User, action: str, reason: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["disciplinary"])
-    await log_channel.send(f"⚖️ {user.mention} received **{action}** from {interaction.user.mention} for: {reason}")
-    await interaction.response.send_message("✅ Disciplinary logged.", ephemeral=True)
-
-@bot.tree.command(name="warrant", description="Log a warrant.")
-async def warrant(interaction: discord.Interaction, user: discord.User, reason: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["warrant"])
-    await log_channel.send(f"📜 Warrant issued for {user.mention} by {interaction.user.mention} for: {reason}")
-    await interaction.response.send_message("✅ Warrant logged.", ephemeral=True)
-
-@bot.tree.command(name="arrest", description="Log an arrest.")
-async def arrest(interaction: discord.Interaction, user: discord.User, reason: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["arrest"])
-    await log_channel.send(f"🚔 {user.mention} was arrested by {interaction.user.mention} for: {reason}")
-    await interaction.response.send_message("✅ Arrest logged.", ephemeral=True)
-
-@bot.tree.command(name="blacklist", description="Blacklist (ban) a user by ID.")
-async def blacklist(interaction: discord.Interaction, user_id: str, reason: str):
-    guild = interaction.guild
-    try:
-        user = await bot.fetch_user(int(user_id))
-        await guild.ban(user, reason=reason)
-        log_channel = bot.get_channel(LOG_CHANNELS["blacklist"])
-        await log_channel.send(f"⛔ {user.mention} was blacklisted by {interaction.user.mention} for: {reason}")
-        await interaction.response.send_message("✅ User blacklisted.", ephemeral=True)
-    except Exception as e:
-        await interaction.response.send_message(f"❌ Error: {e}", ephemeral=True)
-
-@bot.tree.command(name="training", description="Log a training session.")
-async def training(interaction: discord.Interaction, trainer: discord.User, topic: str):
-    log_channel = bot.get_channel(LOG_CHANNELS["training"])
-    await log_channel.send(f"🎓 Training on **{topic}** conducted by {trainer.mention} (logged by {interaction.user.mention})")
-    await interaction.response.send_message("✅ Training logged.", ephemeral=True)
-
-# ==============================
-# ON READY
-# ==============================
+# =======================
+# Bot Ready Event
+# =======================
 @bot.event
 async def on_ready():
-    await bot.tree.sync()
-    print(f"✅ Logged in as {bot.user}")
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Synced {len(synced)} commands")
+    except Exception as e:
+        print(f"❌ Failed to sync commands: {e}")
+    print(f"🤖 Logged in as {bot.user} (ID: {bot.user.id})")
+
+# =======================
+# Run Bot
+# =======================
+bot.run("YOUR_BOT_TOKEN")
